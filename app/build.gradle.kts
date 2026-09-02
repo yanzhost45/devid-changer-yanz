@@ -1,0 +1,110 @@
+import java.util.Properties
+
+plugins {
+  alias(libs.plugins.android.application)
+  alias(libs.plugins.compose.compiler)
+  alias(libs.plugins.kotlin.serialization)
+}
+
+val keystoreProps = Properties().apply {
+    val f = rootProject.file("local.properties")
+    if (f.exists()) f.inputStream().use { load(it) }
+}
+
+fun propOr(key: String, def: String) = keystoreProps.getProperty(key) ?: def
+
+android {
+    namespace = "com.warungerik.devidchanger"
+    compileSdk = 36
+
+    defaultConfig {
+        applicationId = "com.warungerik.devidchanger"
+        minSdk = 23
+        targetSdk = 36
+        versionCode = 1
+        versionName = "1.2.0"
+    }
+
+    signingConfigs {
+        create("release") {
+            val storePath = propOr("storeFile", "../keystore/devid-changer.jks")
+            val storePass = propOr("KEYSTORE_PASSWORD", "")
+            val ksFile = file(storePath)
+            if (ksFile.exists() && storePass.isNotBlank()) {
+                storeFile = ksFile
+                storePassword = storePass
+                keyAlias = propOr("KEY_ALIAS", "")
+                keyPassword = propOr("KEY_PASSWORD", "")
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            signingConfigs.findByName("release")?.let {
+                if (it.storeFile?.exists() == true && !it.storePassword.isNullOrBlank()) {
+                    signingConfig = it
+                }
+            }
+        }
+        debug {
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+    buildFeatures {
+      compose = true
+      buildConfig = true
+    }
+
+    packaging {
+      resources {
+        excludes += "/META-INF/{AL2.0,LGPL2.1}"
+      }
+    }
+}
+
+kotlin {
+    jvmToolchain(17)
+}
+
+dependencies {
+  val composeBom = platform(libs.androidx.compose.bom)
+  implementation(composeBom)
+  androidTestImplementation(composeBom)
+
+  implementation(libs.androidx.core.ktx)
+  implementation(libs.androidx.lifecycle.runtime.ktx)
+  implementation(libs.androidx.activity.compose)
+
+  implementation(libs.androidx.lifecycle.runtime.compose)
+  implementation(libs.androidx.lifecycle.viewmodel.compose)
+
+  implementation(libs.androidx.compose.ui)
+  implementation(libs.androidx.compose.ui.tooling.preview)
+  implementation(libs.androidx.compose.material3)
+  implementation("androidx.compose.material:material-icons-extended")
+
+  debugImplementation(libs.androidx.compose.ui.tooling)
+  androidTestImplementation(libs.androidx.compose.ui.test.junit4)
+  debugImplementation(libs.androidx.compose.ui.test.manifest)
+
+  testImplementation(libs.junit)
+  testImplementation(libs.kotlinx.coroutines.test)
+
+  androidTestImplementation(libs.androidx.test.core)
+  androidTestImplementation(libs.androidx.test.ext.junit)
+  androidTestImplementation(libs.androidx.test.runner)
+  androidTestImplementation(libs.androidx.test.espresso.core)
+
+  implementation(libs.androidx.navigation3.ui)
+  implementation(libs.androidx.navigation3.runtime)
+  implementation(libs.androidx.lifecycle.viewmodel.navigation3)
+}
+
