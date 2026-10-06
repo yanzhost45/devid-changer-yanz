@@ -2,6 +2,11 @@ package com.warungerik.devidchanger.ui.screens
 
 import android.content.Context
 import android.content.Intent
+import android.os.Build
+import android.provider.Settings
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
@@ -56,6 +61,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.warungerik.devidchanger.MainViewModel
+import com.warungerik.devidchanger.overlay.DeviceIdOverlayService
 import com.warungerik.devidchanger.R
 import com.warungerik.devidchanger.root.RootExecutor
 import com.warungerik.devidchanger.ui.components.ProcessingDialog
@@ -74,6 +80,16 @@ fun HomeScreen(
     val uiState by viewModel.uiState.collectAsState()
     val strings = AppStrings(uiState.currentLanguage)
     val context = LocalContext.current
+
+    val deviceIdFilePicker =
+        rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.OpenDocument()
+        ) { uri ->
+            if (uri != null) {
+                viewModel.loadDeviceIdFile(context, uri)
+            }
+        }
+
     val clipboardManager = LocalClipboardManager.current
     val scrollState = rememberScrollState()
     val successColor = if (MaterialTheme.colorScheme.background.red < 0.5f) DarkSuccess else LightSuccess
@@ -219,6 +235,69 @@ fun HomeScreen(
                 )
                 Spacer(modifier = Modifier.weight(1f))
 
+                OutlinedButton(
+                    onClick = {
+                        deviceIdFilePicker.launch(
+                            arrayOf("text/plain", "text/*")
+                        )
+                    },
+                    modifier = Modifier.height(32.dp),
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
+                    shape = RoundedCornerShape(6.dp),
+                    border = BorderStroke(
+                        1.dp,
+                        MaterialTheme.colorScheme.primary
+                    )
+                ) {
+                    Text(
+                        text = "PICK TXT",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(4.dp))
+
+                OutlinedButton(
+                    onClick = {
+                        if (!Settings.canDrawOverlays(context)) {
+                            val intent = Intent(
+                                Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                                Uri.parse("package:${context.packageName}")
+                            )
+                            context.startActivity(intent)
+                        } else {
+                            val intent = Intent(
+                                context,
+                                DeviceIdOverlayService::class.java
+                            )
+
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                                context.startForegroundService(intent)
+                            } else {
+                                context.startService(intent)
+                            }
+                        }
+                    },
+                    modifier = Modifier.height(32.dp),
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
+                    shape = RoundedCornerShape(6.dp),
+                    border = BorderStroke(
+                        1.dp,
+                        MaterialTheme.colorScheme.primary
+                    )
+                ) {
+                    Text(
+                        text = "FLOAT",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(4.dp))
+
                 if (uiState.newJsonId.isNotBlank()) {
                     OutlinedButton(
                         onClick = { idToSave = uiState.newJsonId.trim() },
@@ -328,6 +407,55 @@ fun HomeScreen(
                 ),
                 shape = RoundedCornerShape(8.dp)
             )
+
+            if (uiState.deviceIdCount > 0) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    OutlinedButton(
+                        onClick = { viewModel.previousDeviceId() },
+                        modifier = Modifier.height(36.dp),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
+                        shape = RoundedCornerShape(6.dp)
+                    ) {
+                        Text(
+                            text = "◀ PREV",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.width(8.dp))
+
+                    Text(
+                        text = "${uiState.deviceIdPosition} / ${uiState.deviceIdCount}",
+                        modifier = Modifier.weight(1f),
+                        fontSize = 12.sp,
+                        fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                    )
+
+                    Spacer(modifier = Modifier.width(8.dp))
+
+                    OutlinedButton(
+                        onClick = { viewModel.nextDeviceId() },
+                        modifier = Modifier.height(36.dp),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
+                        shape = RoundedCornerShape(6.dp)
+                    ) {
+                        Text(
+                            text = "NEXT ▶",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
 
             Row(
                 modifier = Modifier.fillMaxWidth().padding(top = 4.dp),

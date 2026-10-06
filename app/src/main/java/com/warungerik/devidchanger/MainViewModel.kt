@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.warungerik.devidchanger.engine.DevIdChanger
+import com.warungerik.devidchanger.device.DeviceIdRepository
 import com.warungerik.devidchanger.model.AppLanguage
 import com.warungerik.devidchanger.model.AppTab
 import com.warungerik.devidchanger.model.GameVersion
@@ -48,10 +49,15 @@ data class AppState(
     val mlbbServerId: String = "",
     val isMlbbChecking: Boolean = false,
     val mlbbResult: MlbbCheckResult? = null,
-    val mlbbError: String? = null
+    val mlbbError: String? = null,
+    val deviceIdFileName: String? = null,
+    val deviceIdCount: Int = 0,
+    val deviceIdPosition: Int = 0
 )
 
 class MainViewModel : ViewModel() {
+
+    private val deviceIdRepository = DeviceIdRepository()
 
     private val _uiState = MutableStateFlow(AppState())
     val uiState: StateFlow<AppState> = _uiState.asStateFlow()
@@ -100,6 +106,53 @@ class MainViewModel : ViewModel() {
 
     fun updateNewJsonId(input: String) {
         _uiState.update { it.copy(newJsonId = input) }
+    }
+
+    fun loadDeviceIdFile(context: Context, uri: android.net.Uri) {
+        viewModelScope.launch {
+            val result = deviceIdRepository.loadFromUri(context, uri)
+
+            result.onSuccess { count ->
+                val currentId = deviceIdRepository.current()
+
+                _uiState.update {
+                    it.copy(
+                        newJsonId = currentId ?: "",
+                        deviceIdCount = count,
+                        deviceIdPosition = deviceIdRepository.position()
+                    )
+                }
+            }
+
+            result.onFailure { error ->
+                addLog(
+                    "Gagal memuat Device ID: ${error.message ?: "Unknown error"}",
+                    LogType.ERROR
+                )
+            }
+        }
+    }
+
+    fun nextDeviceId() {
+        val id = deviceIdRepository.next() ?: return
+
+        _uiState.update {
+            it.copy(
+                newJsonId = id,
+                deviceIdPosition = deviceIdRepository.position()
+            )
+        }
+    }
+
+    fun previousDeviceId() {
+        val id = deviceIdRepository.previous() ?: return
+
+        _uiState.update {
+            it.copy(
+                newJsonId = id,
+                deviceIdPosition = deviceIdRepository.position()
+            )
+        }
     }
 
     fun updateMlbbUserId(input: String) {
